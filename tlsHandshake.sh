@@ -106,8 +106,6 @@ ENCRYPTED_SAMPLE_MESSAGE=$(echo "$KEY_EXCHANGE_RESPONSE" | jq -r '.encryptedSamp
 DECODED_SAMPLE_MESSAGE_CLEAN=$(echo "$ENCRYPTED_SAMPLE_MESSAGE" | base64 -d | tr -d '\0')
 DECRYPTED_SAMPLE_MESSAGE=$(echo "$DECODED_SAMPLE_MESSAGE_CLEAN" | openssl enc -d -aes-256-cbc -pbkdf2 -k "$MASTER_KEY" 2>/dev/null)
 
-
-
 EXPECTED_RESULT=$"Hi server, please encrypt me and send to client!"
 
 if [ "$DECRYPTED_SAMPLE_MESSAGE" != "$EXPECTED_RESULT" ]; then
