@@ -54,6 +54,7 @@ echo "$SERVER_CERT" > cert.pem
 wget -q https://alonitac.github.io/DevOpsTheHardWay/networking_project/cert-ca-aws.pem
 openssl verify -CAfile cert-ca-aws.pem cert.pem
 
+
 #Check if certificate verification was successful.
 if [ $? -eq 0 ]; then
     echo "cert.pem: OK"
