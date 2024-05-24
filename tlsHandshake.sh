@@ -80,6 +80,7 @@ KEY_EXCHANGE=$(cat <<EOF
 EOF
 )
 
+
 #This line sends a POST request to the server's /keyexchange endpoint with the JSON payload containing the encrypted master key
 #and session ID, and stores the server's response in the variable KEY_EXCHANGE_RESPONSE.
 echo "Sending encrypted master key to server..."
