@@ -31,7 +31,6 @@ echo "Sending Client Hello to $SERVER_IP..."
 SERVER_HELLO=$(curl -s -X POST -H "Content-Type: application/json" -d "$CLIENT_HELLO" "$SERVER_IP:8080/clienthello")
 
 
-
 #Checks if the SERVER_HELLO variable is empty, indicating no response from the server.
 #If true, it prints a message indicating no response and exits with a status code of 1.
 if [ -z "$SERVER_HELLO" ]; then
