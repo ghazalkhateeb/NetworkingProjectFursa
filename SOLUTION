@@ -1,26 +1,51 @@
 Local DNS Server IP
 -------------------
-<ip-here>
+127.0.0.53
 
 
 
 Default gateway IP
 -------------------
-<ip-here>
+10.0.0.1
 
 
 
 DHCP IP allocation sys-logs
 -------------------
-<logs-here>
+Discover:
+2024-05-20T16:30:16.593508+00:00 ip-10-0-0-221 dhcpcd[451]: ens5: soliciting a DHCP lease
 
+Offer:
+2024-05-20T16:30:16.593512+00:00 ip-10-0-0-221 dhcpcd[451]: ens5: offered 10.0.0.221 from 10.0.0.1
+
+Request:
+2024-05-20T16:30:16.593517+00:00 ip-10-0-0-221 dhcpcd[451]: ens5: leased 10.0.0.221 for 3600 seconds
+
+Acknowledge:
+2024-05-20T16:30:16.593522+00:00 ip-10-0-0-221 dhcpcd[451]: ens5: adding route to 10.0.0.0/24
+2024-05-20T17:06:22.303441+00:00 ip-10-0-0-221 dhcpcd[443]: ens5: adding default route via 10.0.0.1
 
 
 Public to private num of hops
 -------------------
-<answer-here>
+1 hop
+the output of the command is:
+1  10.0.1.47 (10.0.1.47)  0.512 ms  0.494 ms  0.491 ms
 
 
 DNS queries from the private instance
 -------------------
-<answer-here>
+yes, because  DNS resolver listed in the configuration points to the default DNS resolver provided within
+the VPC.
+if you want to know the ip address for google.com from the private instance you can run this command:
+nslookup google.com
+and get this output:
+
+Server:		127.0.0.53
+Address:	127.0.0.53#53
+
+Non-authoritative answer:
+Name:	google.com
+Address: 142.250.74.110
+Name:	google.com
+Address: 2a00:1450:400f:80b::200e
