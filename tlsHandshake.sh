@@ -105,7 +105,6 @@ if [ "$DECRYPTED_SAMPLE_MESSAGE" != "$EXPECTED_RESULT" ]; then
     echo "Server symmetric encryption using the exchanged master-key has failed."
     exit 6
 fi
-
 echo "Client-Server TLS handshake has been completed successfully."
 
 
