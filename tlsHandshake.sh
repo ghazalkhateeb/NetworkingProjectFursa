@@ -54,7 +54,6 @@ echo "$SERVER_CERT" > cert.pem
 wget -q https://alonitac.github.io/DevOpsTheHardWay/networking_project/cert-ca-aws.pem
 openssl verify -CAfile cert-ca-aws.pem cert.pem
 
-
 #Check if certificate verification was successful.
 if [ $? -eq 0 ]; then
     echo "cert.pem: OK"
@@ -62,6 +61,7 @@ else
     echo "Server Certificate is invalid."
     exit 5
 fi
+
 
 #Step 4: Client-Server master-key exchange.
 #These lines generate a random 32-byte master key using openssl rand,
