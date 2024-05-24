@@ -48,6 +48,7 @@ SERVER_CERT=$(echo "$SERVER_HELLO" | jq -r '.serverCert')
 #Save the server certificate in a file named cert.pem.
 echo "$SERVER_CERT" > cert.pem
 
+
 #Step 3: Server Certificate Verification.
 #Downloads the CA certificate (cert-ca-aws.pem) from the provided URL and verifies the server certificate (cert.pem)
 #using the CA certificate.
