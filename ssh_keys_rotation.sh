@@ -32,4 +32,3 @@ cat mykey.pem.pub | ssh -o StrictHostKeyChecking=accept-new -i my_old_key.pem ub
 
 
 
-
