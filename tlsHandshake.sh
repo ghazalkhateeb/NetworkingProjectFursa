@@ -55,7 +55,7 @@ echo "$SERVER_CERT" > cert.pem
 wget "https://alonitac.github.io/DevOpsTheHardWay/networking_project/cert-ca-aws.pem"
 
 if [ $? -ne 0 ];then
-    echo "Server Certificate is invalid."
+    echo "CA Certificate is invalid."
     exit 5
 fi
 
@@ -66,6 +66,7 @@ if [ $? -ne 0 ];then
     echo "Server Certificate is invalid."
     exit 5
 fi
+
 rm cert-ca-aws.pem
 
 
@@ -110,12 +111,11 @@ echo "Received response from server: $KEY_EXCHANGE_RESPONSE"
 #it prints a success message indicating that the TLS handshake has been completed successfully.
 #Otherwise, it prints an error message and exits with a non-zero exit status (6).
 ENCRYPTED_SAMPLE_MESSAGE=$(echo "$KEY_EXCHANGE_RESPONSE" | jq -r '.encryptedSampleMessage')
-DECODED_SAMPLE_MESSAGE_CLEAN=$(echo "$ENCRYPTED_SAMPLE_MESSAGE" | base64 -d | tr -d '\0')
-DECRYPTED_SAMPLE_MESSAGE=$(echo "$DECODED_SAMPLE_MESSAGE_CLEAN" | openssl enc -d -aes-256-cbc -pbkdf2 -k "$MASTER_KEY" 2>/dev/null)
+DECRYPTED_MESSAGE=$(echo "$ENCRYPTED_SAMPLE_MESSAGE" | base64 -d | openssl enc -d -aes-256-cbc -pbkdf2 -k "$MASTER_KEY")
 
 EXPECTED_RESULT=$"Hi server, please encrypt me and send to client!"
 
-if [ "$DECRYPTED_SAMPLE_MESSAGE" != "$EXPECTED_RESULT" ]; then
+if [ "$DECRYPTED_MESSAGE" != "$EXPECTED_RESULT" ]; then
     echo "Server symmetric encryption using the exchanged master-key has failed."
     exit 6
 fi
