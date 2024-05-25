@@ -1,36 +1,59 @@
 #!/bin/bash
 
-# check i fprovided ip addres
+#Check if public instance IP is provided.
 if [ $# -ne 1 ]; then
-  echo "Please add the server ip as argument"
-  exit 1
+    echo "public instance IP doesn't provided"
+    exit 1
 fi
 
-#STEP 1-2 the client sends a Client Hello message to the server and take the response back
-curl -s  -X POST -H "Content-Type: application/json"   -d '{"version": "1.3", "ciphersSuites": ["TLS_AES_128_GCM_SHA256", "TLS_CHACHA20_POLY1305_SHA256"], "message": "Client Hello"}'   http://$1:8080/clienthello > respon
+SERVER_IP=$1
+
+#Step 1: Client Hello(Client -> Server).
+#Constructs a JSON string representing the Client Hello message and assigns it to the variable CLIENT_HELLO.
+#The message includes the TLS version, supported cipher suites, and a message indicating it's a Client Hello.
+CLIENT_HELLO=$(cat <<EOF
+{
+   "version": "1.3",
+   "ciphersSuites": [
+      "TLS_AES_128_GCM_SHA256",
+      "TLS_CHACHA20_POLY1305_SHA256"
+   ],
+   "message": "Client Hello"
+}
+EOF
+)
+
+#This line prints an informational message indicating that the Client Hello message is being sent to the server.
+echo "Sending Client Hello to $SERVER_IP..."
+
+#Sends the Client Hello message to the server using curl.
+#It posts the JSON data to http://<server-ip>:8080/clienthello and stores the response in the variable SERVER_HELLO.
+SERVER_HELLO=$(curl -s -X POST -H "Content-Type: application/json" -d "$CLIENT_HELLO" "$SERVER_IP:8080/clienthello")
 
 
-if [ $? -ne 0 ];then
-    echo "Server Certificate is invalid."
-    exit 5
+#Checks if the SERVER_HELLO variable is empty, indicating no response from the server.
+#If true, it prints a message indicating no response and exits with a status code of 1.
+if [ -z "$SERVER_HELLO" ]; then
+    echo "No response from server."
+    exit 1
 fi
 
-jq -r '.serverCert' respon > cert.pem
+#Prints the received Server Hello message.
+echo "Received Server Hello: $SERVER_HELLO"
 
-# var to hold session id
-sessionID=$(jq -r '.sessionID' respon)
-# to remove respon
-rm respon
+#Extracts the session ID and server certificate, storing them in variables SESSION_ID and SERVER_CERT, respectively.
+SESSION_ID=$(echo "$SERVER_HELLO" | jq -r '.sessionID')
+SERVER_CERT=$(echo "$SERVER_HELLO" | jq -r '.serverCert')
 
-#STEP 3 Server Certificate Verification
+#Save the server certificate in a file named cert.pem.
+echo "$SERVER_CERT" > cert.pem
 
 
-
-# here i verify the exit code in the 2 command th wget and openssl and exit 5 if error happened
-# to check if cert.pem is valid
+#Step 3: Server Certificate Verification.
+#Downloads the CA certificate (cert-ca-aws.pem) from the provided URL and verifies the server certificate (cert.pem)
+#using the CA certificate.
 wget "https://alonitac.github.io/DevOpsTheHardWay/networking_project/cert-ca-aws.pem"
 
-# check exit code if it faild exit with code 5
 if [ $? -ne 0 ];then
     echo "Server Certificate is invalid."
     exit 5
@@ -38,42 +61,78 @@ fi
 
 openssl verify -CAfile cert-ca-aws.pem cert.pem
 
-# check exit code if it faild exit with code 5
+#Check if certificate verification was successful.
 if [ $? -ne 0 ];then
     echo "Server Certificate is invalid."
     exit 5
 fi
-
 rm cert-ca-aws.pem
 
-#STEP 4-5 Client-Server master-key exchange GENERATE NEW KEY TO SEND TO SERVER AND RECEIVE RESPONSE BACK
 
-openssl rand -base64 32 > master-key
+#Step 4: Client-Server master-key exchange.
+#These lines generate a random 32-byte master key using openssl rand,
+#encrypt it using the server's certificate with openssl smime, and encode the encrypted key in base64 format.
+#Then, it constructs a JSON payload for the key exchange, including the session ID, encrypted master key, and a sample message.
+MASTER_KEY=$(openssl rand -base64 32)
+echo "$MASTER_KEY" > master_key.txt
 
-# var to hold master key and the encrypted master key
-MASTER_KEY=$(cat master-key)
-MASTER_KEY_ENC=$(openssl smime -encrypt -aes-256-cbc -in master-key -outform DER cert.pem | base64 -w 0)
-
-rm cert.pem
-rm master-key
-# body of the request
-sampleMessagesent="Hi server, please encrypt me and send to client!"
-body="{\"sessionID\": \"$sessionID\",\"masterKey\": \"$MASTER_KEY_ENC\",\"sampleMessage\": \"$sampleMessagesent\"}"
-
-
-# send message and save the respon
-SAMPLE_MESSAGE_REC=$(curl -s -X POST -H "Content-Type: application/json" -d "$body" "$1":8080/keyexchange | jq -r '.encryptedSampleMessage')
-
-# DECREPT THE MESSAGE
-DECREPT_MESSAGE=$(echo "$SAMPLE_MESSAGE_REC" | base64 -d | openssl enc -d -aes-256-cbc -pbkdf2 -k "$MASTER_KEY")
+ENCRYPTED_MASTER_KEY=$(openssl smime -encrypt -aes-256-cbc -in master_key.txt -outform DER cert.pem | base64 -w 0)
+KEY_EXCHANGE=$(cat <<EOF
+{
+    "sessionID": "$SESSION_ID",
+    "masterKey": "$ENCRYPTED_MASTER_KEY",
+    "sampleMessage": "Hi server, please encrypt me and send to client!"
+}
+EOF
+)
 
 
-#STEP 6 Client verification message
+#This line sends a POST request to the server's /keyexchange endpoint with the JSON payload containing the encrypted master key
+#and session ID, and stores the server's response in the variable KEY_EXCHANGE_RESPONSE.
+echo "Sending encrypted master key to server..."
+KEY_EXCHANGE_RESPONSE=$(curl -s -X POST -H "Content-Type: application/json" -d "$KEY_EXCHANGE" "$SERVER_IP:8080/keyexchange")
 
-#compare the 2 strings
-if [[ "$DECREPT_MESSAGE" == "$sampleMessagesent" ]]; then
-    echo "Client-Server TLS handshake has been completed successfully"
-else
+
+#This block checks if the KEY_EXCHANGE_RESPONSE variable is empty, indicating that there was no response from the server.
+#If true, it prints an error message and exits with a non-zero exit status (1).
+if [ -z "$KEY_EXCHANGE_RESPONSE" ]; then
+    echo "No response from server."
+    exit 1
+fi
+
+#This line prints the received response from the server to the console.
+echo "Received response from server: $KEY_EXCHANGE_RESPONSE"
+
+#Step 6: Client verification message.
+#These lines parse the encrypted sample message from the server's response using jq, decode it from base64 format,
+#and then decrypt it using openssl enc with the generated master key.
+#If the decrypted sample message matches the expected value,
+#it prints a success message indicating that the TLS handshake has been completed successfully.
+#Otherwise, it prints an error message and exits with a non-zero exit status (6).
+ENCRYPTED_SAMPLE_MESSAGE=$(echo "$KEY_EXCHANGE_RESPONSE" | jq -r '.encryptedSampleMessage')
+DECODED_SAMPLE_MESSAGE_CLEAN=$(echo "$ENCRYPTED_SAMPLE_MESSAGE" | base64 -d | tr -d '\0')
+DECRYPTED_SAMPLE_MESSAGE=$(echo "$DECODED_SAMPLE_MESSAGE_CLEAN" | openssl enc -d -aes-256-cbc -pbkdf2 -k "$MASTER_KEY" 2>/dev/null)
+
+EXPECTED_RESULT=$"Hi server, please encrypt me and send to client!"
+
+if [ "$DECRYPTED_SAMPLE_MESSAGE" != "$EXPECTED_RESULT" ]; then
     echo "Server symmetric encryption using the exchanged master-key has failed."
     exit 6
 fi
+echo "Client-Server TLS handshake has been completed successfully."
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
